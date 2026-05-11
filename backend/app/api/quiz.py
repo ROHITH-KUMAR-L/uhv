@@ -57,34 +57,14 @@ async def submit_quiz(body: QuizSubmission, current_user: dict = Depends(get_cur
     total = len(body.answers)
     percentage = round((score / total) * 100, 1) if total > 0 else 0.0
 
-    # Save result + update cyber_safety_score
+    # Save result
     result_id = str(uuid.uuid4())
     db.table("quiz_results").insert({
         "id": result_id, "user_id": current_user["sub"],
         "score": score, "total_questions": total, "percentage": percentage,
     }).execute()
 
-    # Increment cyber_safety_score by score
-    profile = db.table("profiles").select("cyber_safety_score").eq("id", current_user["sub"]).execute()
-    if profile.data:
-        current_score = profile.data[0]["cyber_safety_score"] or 0
-        db.table("profiles").update({"cyber_safety_score": current_score + score}).eq("id", current_user["sub"]).execute()
-
     return APIResponse(data=QuizResult(score=score, total_questions=total, percentage=percentage, feedback=feedback))
-
-
-@router.get("/leaderboard", response_model=APIResponse[list[LeaderboardEntry]])
-async def leaderboard(limit: int = Query(10, ge=1, le=50)):
-    """Top users ranked by cyber_safety_score."""
-    db = get_supabase()
-    result = (db.table("profiles").select("id, full_name, cyber_safety_score")
-              .order("cyber_safety_score", desc=True).limit(limit).execute())
-    entries = [
-        LeaderboardEntry(rank=i + 1, user_id=r["id"], full_name=r.get("full_name"),
-                         cyber_safety_score=r.get("cyber_safety_score", 0))
-        for i, r in enumerate(result.data)
-    ]
-    return APIResponse(data=entries)
 
 
 @router.get("/my-history", response_model=APIResponse)

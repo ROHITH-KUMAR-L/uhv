@@ -57,12 +57,11 @@ async def send_otp(body: SendOTPRequest):
     }).execute()
 
     # Send via mobile gateway
-    try:
-        await send_otp_sms(body.phone, otp_code)
-    except Exception as e:
+    sms_sent = await send_otp_sms(body.phone, otp_code)
+    if not sms_sent:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"SMS gateway error: {str(e)}",
+            detail="SMS gateway failed. Please check if the mobile server is online.",
         )
 
     return APIResponse(message=f"OTP sent to {body.phone}. Valid for {settings.OTP_EXPIRY_MINUTES} minutes.")

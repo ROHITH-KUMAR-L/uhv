@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS profiles (
     avatar_url        TEXT,
     auth_provider     TEXT NOT NULL DEFAULT 'email',  -- 'google' | 'phone' | 'email'
     role              TEXT NOT NULL DEFAULT 'user',    -- 'user' | 'admin'
-    cyber_safety_score INT NOT NULL DEFAULT 0,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

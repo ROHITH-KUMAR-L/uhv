@@ -21,21 +21,34 @@ async def send_otp_sms(phone: str, otp_code: str) -> bool:
 
     Returns True on success, raises on failure.
     """
-    message = f"Your ScamShield OTP is: {otp_code}. Valid for {settings.OTP_EXPIRY_MINUTES} minutes. Do not share this with anyone."
+    try:
+        # Add shared secret header if configured
+        headers = {"Content-Type": "application/json"}
+        if settings.SMS_GATEWAY_SECRET:
+            headers["X-Gateway-Secret"] = settings.SMS_GATEWAY_SECRET
 
-    payload: dict = {"to": phone, "message": message}
-
-    # Add shared secret header if configured
-    headers = {"Content-Type": "application/json"}
-    if settings.SMS_GATEWAY_SECRET:
-        headers["X-Gateway-Secret"] = settings.SMS_GATEWAY_SECRET
-
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(
-            settings.SMS_GATEWAY_URL,
-            json=payload,
-            headers=headers,
-        )
-        resp.raise_for_status()
-
-    return True
+        # Construct the message text
+        message_text = f"Your ScamShield OTP is: {otp_code}. Valid for {settings.OTP_EXPIRY_MINUTES} minutes. Do not share this with anyone."
+        
+        # The payload your mobile app expects: {"phone": "...", "message": "..."}
+        payload = {
+            "phone": phone,
+            "message": message_text
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                settings.SMS_GATEWAY_URL,
+                json=payload,
+                headers=headers,
+                timeout=10.0
+            )
+            
+            if response.status_code != 200:
+                print(f"SMS Gateway Error: {response.status_code} - {response.text}")
+                return False
+            
+            return True
+    except Exception as e:
+        print(f"SMS Gateway Exception: {str(e)}")
+        return False
