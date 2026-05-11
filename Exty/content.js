@@ -161,12 +161,17 @@ function injectLockOverlay(verdict, score, reasons, isManual = false) {
             <div style="background: rgba(255,255,255,0.03); border-radius: 30px; padding: 35px; text-align: left; border: 1px solid ${color}44; margin-bottom: 50px;">
                 ${reasons.map(r => `<div style="margin-bottom: 10px; font-size: 14px;">🚩 ${r}</div>`).join('')}
             </div>
-            <button id="exty-lock-close" style="padding: 20px 50px; border-radius: 50px; border: none; background: #fff; color: #000; font-weight: 900; cursor: pointer;">ABORT & LEAVE</button>
+            <div style="display: flex; gap: 20px; justify-content: center;">
+                <button id="exty-lock-close" style="padding: 20px 50px; border-radius: 50px; border: none; background: #fff; color: #000; font-weight: 900; cursor: pointer; transition: 0.3s;">ABORT & LEAVE</button>
+                <button id="exty-lock-proceed" style="padding: 20px 50px; border-radius: 50px; border: 1px solid #333; background: transparent; color: #fff; font-weight: 900; cursor: pointer;">PROCEED TO SITE</button>
+            </div>
         </div>
     `;
     document.documentElement.appendChild(overlay);
     document.body.style.overflow = 'hidden';
+    
     document.getElementById('exty-lock-close').onclick = () => { window.history.back(); if (window.history.length <= 1) window.close(); };
+    document.getElementById('exty-lock-proceed').onclick = () => { if (confirm("DANGER: This site is flagged as a high-risk scam. Proceed anyway?")) { overlay.remove(); document.body.style.overflow = ''; } };
 }
 
 function injectBadge(verdict, score, reasons) {
