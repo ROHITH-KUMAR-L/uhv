@@ -320,8 +320,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-// Initialization
-chrome.storage.local.get(['protectionEnabled'], (result) => {
-    if (result.protectionEnabled) startAnalysis();
-    else showStartUI();
-});
+// Initialization: Always show Start UI for manual control
+showStartUI();

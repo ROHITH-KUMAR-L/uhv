@@ -4,31 +4,16 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUI();
 
     document.getElementById('rescan-btn').addEventListener('click', () => {
-        chrome.storage.local.set({ protectionEnabled: true }, () => {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                    chrome.tabs.sendMessage(tabs[0].id, { type: "START_SCAN_MANUAL" });
-                    setTimeout(updateUI, 100);
-                }
-            });
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, { type: "START_SCAN_MANUAL" });
+                setTimeout(updateUI, 100);
+            }
         });
     });
 });
 
 function updateUI() {
-    chrome.storage.local.get(['protectionEnabled'], (res) => {
-        const status = document.getElementById('protection-status');
-        if (res.protectionEnabled) {
-            status.innerText = 'REAL-TIME ACTIVE';
-            status.style.background = 'rgba(0, 242, 255, 0.1)';
-            status.style.color = '#00f2ff';
-        } else {
-            status.innerText = 'PROTECTION INACTIVE';
-            status.style.background = 'rgba(255, 255, 255, 0.05)';
-            status.style.color = '#888';
-        }
-    });
-
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (!tabs[0]) return;
         const tabId = tabs[0].id;
