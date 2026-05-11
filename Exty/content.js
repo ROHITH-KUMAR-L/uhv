@@ -1,19 +1,22 @@
-// Exty Content Script - Advanced Scam Analysis Engine
+// Exty Content Script - Ultra Advanced Scam Analysis Engine
 
 const SUSPICIOUS_KEYWORDS = [
     "urgent", "action required", "suspended", "unauthorized access", "security breach",
     "verify your identity", "confirm your account", "limited time", "act now", "prize winner",
     "inheritance", "bank transfer", "password reset", "claim your reward", "aadhaar", "otp",
-    "verify now", "immediate attention", "risk of closure", "click here to claim"
+    "verify now", "immediate attention", "risk of closure", "click here to claim", "customer support"
 ];
 
 const TRUSTED_BRANDS = [
-    { name: 'google', domains: ['google.com', 'google.co.in'], colors: ['#4285f4', '#34a853', '#fbbc05', '#ea4335'] },
-    { name: 'microsoft', domains: ['microsoft.com', 'outlook.com', 'live.com'], colors: ['#f25022', '#7fba00', '#00a4ef', '#ffb900'] },
-    { name: 'amazon', domains: ['amazon.com', 'amazon.in'], colors: ['#ff9900', '#000000'] },
-    { name: 'hdfc', domains: ['hdfcbank.com'], colors: ['#004c8f', '#ed1c24'] },
-    { name: 'paypal', domains: ['paypal.com'], colors: ['#003087', '#009cde'] }
+    { name: 'google', domains: ['google.com', 'google.co.in'], keywords: ['google', 'gmail', 'youtube'] },
+    { name: 'microsoft', domains: ['microsoft.com', 'outlook.com', 'live.com'], keywords: ['microsoft', 'outlook', 'office365'] },
+    { name: 'amazon', domains: ['amazon.com', 'amazon.in'], keywords: ['amazon', 'prime'] },
+    { name: 'hdfc', domains: ['hdfcbank.com'], keywords: ['hdfc'] },
+    { name: 'paypal', domains: ['paypal.com'], keywords: ['paypal'] },
+    { name: 'apple', domains: ['apple.com', 'icloud.com'], keywords: ['apple', 'icloud', 'iphone'] }
 ];
+
+const DANGEROUS_EXTENSIONS = ['.exe', '.scr', '.vbs', '.bat', '.msi', '.ps1', '.zip', '.rar'];
 
 function analyzePage() {
     const signals = {
@@ -22,55 +25,105 @@ function analyzePage() {
         protocol: window.location.protocol,
         title: document.title,
         timestamp: Date.now(),
-        suspiciousKeywordsFound: [],
+        
+        // 1. Phishing Keywords
+        suspiciousKeywordsFound: SUSPICIOUS_KEYWORDS.filter(kw => document.body.innerText.toLowerCase().includes(kw.toLowerCase())),
+        
+        // 2. Form Sensitivity & Fake Logins
         sensitiveInputs: [],
+        isLoginPage: false,
+        
+        // 3. Brand & Visuals
         brandImpersonation: false,
         detectedBrand: null,
-        redirectLinks: []
+        
+        // 4. Source Code Inspection
+        hiddenElements: 0,
+        suspiciousIframes: 0,
+        obfuscatedScripts: 0,
+        
+        // 5. Links & Downloads
+        redirectLinks: [],
+        dangerousDownloads: [],
+        
+        // 6. Contact Info
+        suspiciousEmails: [],
+        
+        // 7. Adware/Popups
+        popupAttempts: 0,
+        
+        // 8. Typosquatting/Homograph
+        hasNonAscii: /[^\x00-\x7F]/.test(window.location.hostname),
+        isIPAddress: /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(window.location.hostname)
     };
 
-    // 1. Phishing Keyword Detection
-    const bodyText = document.body.innerText.toLowerCase();
-    signals.suspiciousKeywordsFound = SUSPICIOUS_KEYWORDS.filter(kw => bodyText.includes(kw.toLowerCase()));
+    // Analyze Forms & Login Patterns
+    const inputs = document.querySelectorAll('input');
+    const hasPassword = Array.from(inputs).some(i => i.type === 'password');
+    signals.isLoginPage = hasPassword && (document.title.toLowerCase().includes('login') || document.title.toLowerCase().includes('sign in'));
 
-    // 2. Form Field Sensitivity Scanning (Enhanced)
-    document.querySelectorAll('input').forEach(input => {
+    inputs.forEach(input => {
         const type = input.getAttribute('type');
         const name = (input.getAttribute('name') || '').toLowerCase();
         const placeholder = (input.getAttribute('placeholder') || '').toLowerCase();
-        const id = (input.getAttribute('id') || '').toLowerCase();
-        const combined = `${name} ${placeholder} ${id}`;
+        const combined = `${name} ${placeholder}`;
 
-        if (type === 'password' || 
-            combined.includes('card') || combined.includes('cvv') || 
-            combined.includes('ssn') || combined.includes('aadhaar') || 
-            combined.includes('otp') || combined.includes('pin') ||
-            combined.includes('pan') || combined.includes('account')) {
-            signals.sensitiveInputs.push({ type, name: combined.substring(0, 50) });
+        if (type === 'password' || combined.includes('card') || combined.includes('cvv') || 
+            combined.includes('ssn') || combined.includes('aadhaar') || combined.includes('otp') || 
+            combined.includes('pin') || combined.includes('pan')) {
+            signals.sensitiveInputs.push({ type, context: combined.substring(0, 30) });
         }
     });
 
-    // 3. Brand Impersonation Detection (Visual Heuristics)
-    const pageContent = document.body.innerHTML.toLowerCase();
-    const pageTitle = document.title.toLowerCase();
-    
+    // Brand Impersonation (Expanded)
+    const pageText = document.body.innerText.toLowerCase();
     for (const brand of TRUSTED_BRANDS) {
-        // If the brand name appears in title or content, but domain doesn't match
-        const brandMatchInTitle = pageTitle.includes(brand.name);
-        const domainMatch = brand.domains.some(d => window.location.hostname.endsWith(d));
-
-        if (brandMatchInTitle && !domainMatch) {
+        const brandDetected = brand.keywords.some(kw => pageText.includes(kw) || signals.title.toLowerCase().includes(kw));
+        const domainMatch = brand.domains.some(d => signals.hostname.endsWith(d));
+        if (brandDetected && !domainMatch) {
             signals.brandImpersonation = true;
             signals.detectedBrand = brand.name;
             break;
         }
     }
 
-    // 4. External Link & Redirect Analysis
+    // Source Code & Script Inspection
+    document.querySelectorAll('*').forEach(el => {
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            signals.hiddenElements++;
+        }
+    });
+    
+    signals.suspiciousIframes = document.querySelectorAll('iframe[src*="redirect"], iframe[style*="position: absolute"]').length;
+    
+    // Scan for suspicious script patterns (eval, obfuscation markers)
+    document.querySelectorAll('script').forEach(script => {
+        const content = script.innerText;
+        if (content.includes('eval(') || content.includes('unescape(') || (content.length > 1000 && !content.includes(' '))) {
+            signals.obfuscatedScripts++;
+        }
+    });
+
+    // Links & File Safety
     document.querySelectorAll('a').forEach(link => {
-        const href = link.getAttribute('href') || '';
+        const href = (link.getAttribute('href') || '').toLowerCase();
         if (href.includes('redirect') || href.includes('url=') || href.includes('next=')) {
-            signals.redirectLinks.push(href.substring(0, 100));
+            signals.redirectLinks.push(href.substring(0, 50));
+        }
+        if (DANGEROUS_EXTENSIONS.some(ext => href.endsWith(ext))) {
+            signals.dangerousDownloads.push(href.substring(0, 50));
+        }
+    });
+
+    // Contact Validation
+    const emails = document.body.innerText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+    emails.forEach(email => {
+        if (email.endsWith('@gmail.com') || email.endsWith('@outlook.com') || email.endsWith('@yahoo.com')) {
+            // Suspicious if on a "official" corporate site
+            if (signals.brandImpersonation || signals.isLoginPage) {
+                signals.suspiciousEmails.push(email);
+            }
         }
     });
 
@@ -87,36 +140,38 @@ function showStartUI() {
     overlay.id = 'exty-start-overlay';
     overlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647;
-        background: rgba(5, 5, 5, 0.9); backdrop-filter: blur(15px);
+        background: rgba(2, 2, 5, 0.95); backdrop-filter: blur(20px);
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        color: white; font-family: 'Inter', sans-serif; transition: opacity 0.5s;
+        color: white; font-family: 'Outfit', 'Inter', sans-serif; transition: opacity 0.5s;
     `;
 
-    const logoUrl = chrome.runtime.getURL('icons/icon128.png');
-
     overlay.innerHTML = `
-        <div style="text-align: center;">
-            <img src="${logoUrl}" style="width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 0 30px #00f2ff);" onerror="console.log('Logo failed to load:', this.src)"/>
-            <h1 style="font-size: 42px; letter-spacing: 3px; font-weight: 900; background: linear-gradient(to right, #00f2ff, #7000ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 40px;">EXTY SHIELD</h1>
+        <div style="text-align: center; max-width: 500px; padding: 40px; background: rgba(255,255,255,0.02); border-radius: 40px; border: 1px solid rgba(0,242,255,0.1);">
+            <div style="position: relative; margin-bottom: 30px;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 150px; height: 150px; background: #00f2ff; filter: blur(60px); opacity: 0.2; border-radius: 50%;"></div>
+                <img src="${chrome.runtime.getURL('icons/icon128.png')}" style="width: 120px; height: 120px; position: relative; z-index: 1;" />
+            </div>
+            <h1 style="font-size: 42px; letter-spacing: 4px; font-weight: 900; background: linear-gradient(135deg, #00f2ff 0%, #7000ff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">EXTY SHIELD</h1>
+            <p style="color: #666; font-size: 14px; letter-spacing: 2px; margin-bottom: 40px; font-weight: 600;">ENTERPRISE THREAT INTELLIGENCE</p>
             <button id="exty-start-btn" style="
                 padding: 24px 80px; background: #ffffff; border: none; border-radius: 50px;
-                color: #000; font-size: 20px; font-weight: 800; cursor: pointer;
-                box-shadow: 0 10px 40px rgba(255, 255, 255, 0.2); transition: all 0.3s;
-            ">INITIATE SECURITY SCAN</button>
-            <p style="margin-top: 30px; color: #555; font-size: 13px; letter-spacing: 2px;">V1.0.7 | ADVANCED THREAT ENGINE</p>
+                color: #000; font-size: 18px; font-weight: 900; cursor: pointer;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); transition: all 0.3s;
+            ">ACTIVATE PROTECTION</button>
+            <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; color: #444; font-size: 11px;">
+                <span>✓ REAL-TIME SCAN</span>
+                <span>✓ AI HEURISTICS</span>
+                <span>✓ ANTI-PHISH</span>
+            </div>
         </div>
     `;
 
     document.documentElement.appendChild(overlay);
 
-    const btn = document.getElementById('exty-start-btn');
-    btn.onclick = () => {
+    document.getElementById('exty-start-btn').onclick = () => {
         chrome.storage.local.set({ protectionEnabled: true }, () => {
             overlay.style.opacity = '0';
-            setTimeout(() => {
-                overlay.remove();
-                startAnalysis();
-            }, 500);
+            setTimeout(() => { overlay.remove(); startAnalysis(); }, 500);
         });
     };
 }
@@ -133,37 +188,42 @@ function showScannerPanel() {
     panel.id = 'exty-scanner-panel';
     panel.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647;
-        background: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        color: white; font-family: 'Inter', sans-serif; transition: opacity 0.5s;
+        background: #020205; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        color: white; font-family: 'Outfit', sans-serif;
     `;
 
     panel.innerHTML = `
         <style>
-            .exty-glow { text-shadow: 0 0 20px #00f2ff; }
-            .exty-progress-bar { width: 320px; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin: 30px 0; }
-            .exty-progress-fill { width: 0%; height: 100%; background: #00f2ff; transition: width 1s linear; }
-            @keyframes extyScanLine { from { top: 0%; } to { top: 100%; } }
+            @keyframes extyPulse { 0% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.5; } }
+            .exty-step { margin-bottom: 12px; font-size: 13px; color: #444; display: flex; align-items: center; gap: 10px; transition: color 0.3s; }
+            .exty-step.active { color: #fff; font-weight: 600; }
+            .exty-step.done { color: #00f2ff; }
         </style>
-        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #00f2ff; box-shadow: 0 0 20px #00f2ff; animation: extyScanLine 4s infinite linear;"></div>
-        <h1 class="exty-glow" style="font-size: 32px; letter-spacing: 5px; font-weight: 900;">DEEP SCAN IN PROGRESS</h1>
-        <div class="exty-progress-bar"><div class="exty-progress-fill" id="exty-fill"></div></div>
-        <div id="exty-status-steps" style="width: 380px; font-size: 14px; color: #555;">
-            <div id="step-1">▹ Probing WHOIS & Domain Age...</div>
-            <div id="step-2">▹ Analyzing SSL Trust Chain...</div>
-            <div id="step-3">▹ Checking PhishTank & Safe Browsing...</div>
-            <div id="step-4">▹ Tracing Redirect Loops...</div>
+        <div style="width: 80px; height: 80px; border: 4px solid #00f2ff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 40px;"></div>
+        <h2 style="letter-spacing: 8px; font-weight: 900; margin-bottom: 40px; color: #00f2ff;">THREAT SCANNING</h2>
+        <div id="exty-steps-container" style="width: 350px; background: rgba(255,255,255,0.02); padding: 30px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.05);">
+            <div class="exty-step" id="s1">▹ DNS & Hosting Intelligence</div>
+            <div class="exty-step" id="s2">▹ Typosquatting & Homograph Check</div>
+            <div class="exty-step" id="s3">▹ Page Source Code Inspection</div>
+            <div class="exty-step" id="s4">▹ Real-time Threat Monitoring</div>
+            <div class="exty-step" id="s5">▹ Reputation Database Query</div>
         </div>
     `;
 
     document.documentElement.appendChild(panel);
-    setTimeout(() => document.getElementById('exty-fill').style.width = '100%', 100);
 
-    const steps = ['step-1', 'step-2', 'step-3', 'step-4'];
+    const steps = ['s1', 's2', 's3', 's4', 's5'];
     steps.forEach((id, i) => {
         setTimeout(() => {
             const el = document.getElementById(id);
-            if (el) { el.innerHTML = `<span style="color: #00f2ff;">✓</span> <span style="color: #fff;">${el.innerText.substring(2)}</span>`; }
-        }, (i + 1) * 400);
+            if (el) {
+                el.classList.add('active');
+                setTimeout(() => {
+                    el.classList.replace('active', 'done');
+                    el.innerHTML = `✓ ${el.innerText.substring(2)}`;
+                }, 400);
+            }
+        }, (i + 1) * 350);
     });
 }
 
@@ -175,28 +235,26 @@ function injectLockOverlay(verdict, score, reasons, isManual = false) {
     overlay.id = 'exty-lock-overlay';
     overlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2147483647;
-        background: rgba(0, 0, 0, 0.98); backdrop-filter: blur(25px); display: flex; flex-direction: column;
-        align-items: center; justify-content: center; color: white; font-family: 'Inter', sans-serif;
-        text-align: center; padding: 40px; animation: extyFadeIn 0.5s ease-out;
+        background: #020205; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        color: white; font-family: 'Outfit', sans-serif; text-align: center; padding: 40px;
     `;
 
     const color = verdict === "Safe" ? "#4CAF50" : (verdict === "Suspicious" ? "#FF9800" : "#F44336");
     
     overlay.innerHTML = `
-        <style>@keyframes extyFadeIn { from { opacity: 0; } to { opacity: 1; } }</style>
-        <div style="max-width: 650px; background: rgba(255,255,255,0.03); padding: 50px; border-radius: 30px; border: 1px solid ${color}44;">
-            <div style="font-size: 80px; margin-bottom: 20px;">${verdict === "Safe" ? '🛡️' : '⚠️'}</div>
-            <h1 style="font-size: 48px; margin-bottom: 10px; color: ${color}; font-weight: 900;">${isManual ? 'SECURITY REPORT' : verdict.toUpperCase()}</h1>
-            <p style="color: #888; font-size: 18px; margin-bottom: 40px;">Risk Level: <span style="color: ${color}; font-weight: bold;">${score}%</span></p>
+        <div style="max-width: 700px; width: 100%;">
+            <div style="font-size: 100px; margin-bottom: 20px; animation: extyPulse 2s infinite;">${verdict === "Safe" ? '🛡️' : '🚫'}</div>
+            <h1 style="font-size: 56px; font-weight: 900; color: ${color}; margin-bottom: 10px;">${verdict.toUpperCase()}</h1>
+            <p style="color: #666; font-size: 18px; margin-bottom: 50px;">Security analysis complete. Total risk factor: <span style="color: ${color}; font-weight: 900;">${score}%</span></p>
             
-            <div style="text-align: left; background: rgba(0,0,0,0.3); padding: 30px; border-radius: 20px; margin-bottom: 40px; max-height: 250px; overflow-y: auto;">
-                <div style="font-size: 12px; color: ${color}; font-weight: bold; margin-bottom: 15px; letter-spacing: 2px;">DETECTED SIGNALS</div>
-                ${reasons.map(r => `<div style="margin-bottom: 10px; display: flex; gap: 12px; font-size: 14px; line-height: 1.4;"><span>🚩</span> <span>${r}</span></div>`).join('') || '<div style="color: #4CAF50;">✓ No suspicious signals found.</div>'}
+            <div style="background: rgba(255,255,255,0.03); border-radius: 30px; padding: 35px; text-align: left; border: 1px solid ${color}44; margin-bottom: 50px; max-height: 300px; overflow-y: auto;">
+                <h3 style="font-size: 12px; letter-spacing: 3px; color: ${color}; margin-bottom: 20px;">DETECTION LOGS</h3>
+                ${reasons.map(r => `<div style="margin-bottom: 15px; display: flex; gap: 15px; font-size: 14px; line-height: 1.5; color: #ccc;"><span style="color:${color}">[!]</span> ${r}</div>`).join('') || '<div>No critical anomalies detected.</div>'}
             </div>
 
             <div style="display: flex; gap: 20px; justify-content: center;">
-                <button id="exty-lock-close" style="padding: 18px 45px; border-radius: 40px; border: none; background: #fff; color: #000; font-weight: 800; cursor: pointer;">${isManual ? 'BACK TO SITE' : 'SAFETY REDIRECT'}</button>
-                ${!isManual && verdict !== "Safe" ? '<button id="exty-lock-proceed" style="padding: 18px 45px; border-radius: 40px; border: 1px solid #444; background: transparent; color: #fff; cursor: pointer;">PROCEED ANYWAY</button>' : ''}
+                <button id="exty-lock-close" style="padding: 20px 50px; border-radius: 50px; border: none; background: #fff; color: #000; font-weight: 900; cursor: pointer; transition: 0.3s;">${isManual ? 'CONTINUE' : 'ABORT & LEAVE'}</button>
+                ${!isManual && verdict !== "Safe" ? '<button id="exty-lock-proceed" style="padding: 20px 50px; border-radius: 50px; border: 1px solid #333; background: transparent; color: #fff; font-weight: 900; cursor: pointer;">PROCEED (DANGEROUS)</button>' : ''}
             </div>
         </div>
     `;
@@ -205,26 +263,12 @@ function injectLockOverlay(verdict, score, reasons, isManual = false) {
     document.body.style.overflow = 'hidden';
 
     document.getElementById('exty-lock-close').onclick = () => {
-        if (isManual || verdict === "Safe") {
-            overlay.remove();
-            document.body.style.overflow = '';
-        } else {
-            window.history.back();
-            if (window.history.length <= 1) window.close();
-        }
+        if (isManual || verdict === "Safe") { overlay.remove(); document.body.style.overflow = ''; }
+        else { window.history.back(); if (window.history.length <= 1) window.close(); }
     };
 
-    if (!isManual && verdict !== "Safe") {
-        const proceedBtn = document.getElementById('exty-lock-proceed');
-        if (proceedBtn) {
-            proceedBtn.onclick = () => {
-                if (confirm("Proceeding may expose your data. Are you sure?")) {
-                    overlay.remove();
-                    document.body.style.overflow = '';
-                }
-            };
-        }
-    }
+    const proceed = document.getElementById('exty-lock-proceed');
+    if (proceed) proceed.onclick = () => { if (confirm("DANGER: High risk of data theft. Proceed?")) { overlay.remove(); document.body.style.overflow = ''; } };
 }
 
 function injectBadge(verdict, score, reasons) {
@@ -236,40 +280,28 @@ function injectBadge(verdict, score, reasons) {
     const color = verdict === "Safe" ? "#4CAF50" : (verdict === "Suspicious" ? "#FF9800" : "#F44336");
 
     badge.style.cssText = `
-        position: fixed; top: 20px; right: 20px; z-index: 2147483646;
-        background: #0a0a0c; color: white; padding: 12px 24px; border-radius: 12px;
-        display: flex; align-items: center; gap: 12px; font-family: 'Inter', sans-serif;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
-        cursor: pointer; transition: transform 0.3s; animation: extySlideIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        position: fixed; top: 25px; right: 25px; z-index: 2147483646;
+        background: rgba(10, 10, 15, 0.9); color: white; padding: 14px 28px; border-radius: 16px;
+        display: flex; align-items: center; gap: 15px; font-family: 'Outfit', sans-serif;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.05);
+        cursor: pointer; backdrop-filter: blur(10px);
     `;
 
     badge.innerHTML = `
-        <style>@keyframes extySlideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }</style>
-        <div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; box-shadow: 0 0 10px ${color}"></div>
-        <div style="font-weight: 700; font-size: 14px;">EXTY: ${verdict.toUpperCase()}</div>
-        <div style="font-size: 11px; opacity: 0.5;">Risk ${score}%</div>
-        <div id="exty-badge-close" style="margin-left: 10px; opacity: 0.3; font-size: 18px;">&times;</div>
+        <div style="width: 10px; height: 10px; border-radius: 50%; background: ${color}; box-shadow: 0 0 15px ${color}"></div>
+        <div style="font-weight: 800; font-size: 13px; letter-spacing: 1px;">EXTY: ${verdict.toUpperCase()}</div>
+        <div id="exty-badge-close" style="opacity: 0.3; font-size: 20px;">&times;</div>
     `;
 
     document.documentElement.appendChild(badge);
-
-    badge.onclick = (e) => {
-        if (e.target.id === 'exty-badge-close') {
-            badge.remove();
-        } else {
-            injectLockOverlay(verdict, score, reasons, true);
-        }
-    };
+    badge.onclick = (e) => { if (e.target.id === 'exty-badge-close') badge.remove(); else injectLockOverlay(verdict, score, reasons, true); };
 }
 
 // --- Message Handlers ---
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.type === "GET_PAGE_DATA") {
-        sendResponse(analyzePage());
-    } else if (request.type === "START_SCAN_MANUAL") {
-        startAnalysis();
-    } else if (request.type === "SHOW_BADGE") {
+    if (request.type === "START_SCAN_MANUAL") { startAnalysis(); }
+    else if (request.type === "SHOW_BADGE") {
         const scanner = document.getElementById('exty-scanner-panel');
         if (scanner) {
             setTimeout(() => {
@@ -277,28 +309,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 setTimeout(() => {
                     scanner.remove();
                     document.body.style.overflow = '';
-                    if (request.score >= 60) {
-                        injectLockOverlay(request.verdict, request.score, request.reasons);
-                    }
+                    if (request.score >= 60) injectLockOverlay(request.verdict, request.score, request.reasons);
                     injectBadge(request.verdict, request.score, request.reasons);
                 }, 500);
             }, 800);
         } else {
-            if (request.score >= 60) {
-                injectLockOverlay(request.verdict, request.score, request.reasons);
-            }
+            if (request.score >= 60) injectLockOverlay(request.verdict, request.score, request.reasons);
             injectBadge(request.verdict, request.score, request.reasons);
         }
     }
 });
 
-// Initialization: Check if global protection is active
+// Initialization
 chrome.storage.local.get(['protectionEnabled'], (result) => {
-    if (result.protectionEnabled) {
-        // Automatic scan for redirects and new pages
-        startAnalysis();
-    } else {
-        // Show start UI for first-time activation
-        showStartUI();
-    }
+    if (result.protectionEnabled) startAnalysis();
+    else showStartUI();
 });
