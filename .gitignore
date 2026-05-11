@@ -1,0 +1,55 @@
+# ─── Environment & Secrets ───────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+.eggs/
+
+# ─── Virtual Environments ────────────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ─── Conda ───────────────────────────────────────────────
+.conda/
+
+# ─── IDE / Editor ────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── OS ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Temp / Scam file scans ──────────────────────────────
+/tmp/
+backend/tmp/
+
+# ─── Logs ────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── pytest / coverage ───────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ─── mypy ────────────────────────────────────────────────
+.mypy_cache/
