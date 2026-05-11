@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exty Scam Detector</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="icons/icon48.png" alt="Exty Logo" class="logo">
+                <h1>EXTY</h1>
+            </div>
+            <div id="protection-status" style="font-size: 10px; padding: 4px 8px; border-radius: 20px; background: rgba(255,255,255,0.1); color: #888;">OFFLINE</div>
+        </header>
+
+        <div class="status-card">
+            <div id="scanning-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px; display: none;">
+                <div class="exty-spinner" style="width: 40px; height: 40px; border: 3px solid rgba(0, 242, 255, 0.1); border-top: 3px solid var(--primary); border-radius: 50%; animation: extySpin 1s linear infinite; margin-bottom: 15px;"></div>
+                <div style="color: var(--primary); font-weight: 600; font-size: 14px; letter-spacing: 1px;">CORE SCANNING...</div>
+            </div>
+            <div class="score-container">
+                <svg class="score-svg" viewBox="0 0 100 100">
+                    <circle class="score-bg" cx="50" cy="50" r="45"></circle>
+                    <circle class="score-fill" cx="50" cy="50" r="45"></circle>
+                </svg>
+                <div class="score-text" id="score-val">--</div>
+            </div>
+            <div class="verdict" id="verdict-text">Analyzing...</div>
+            <div id="risk-desc" style="font-size: 13px; color: var(--text-dim);">Scanning page signals</div>
+        </div>
+
+        <div class="reasons-list" id="reasons-container" style="display: none;">
+            <div class="reasons-title">Flags Detected</div>
+            <div id="reasons-items">
+                <!-- Reasons will be injected here -->
+            </div>
+        </div>
+
+        <button id="rescan-btn">START ANALYSIS</button>
+
+        <div class="footer">
+            Real-time Scam Protection Active
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
