@@ -1,7 +1,14 @@
-// Exty Background Service Worker - Advanced Scoring Engine
+// Exty Background Service Worker - Optimized Scoring Engine (Reduced False Positives)
 
 const SUSPICIOUS_TLDS = ['.xyz', '.top', '.loan', '.win', '.bid', '.click', '.gdn', '.monster', '.icu', '.uno', '.tk', '.ml', '.ga', '.cf', '.gq'];
-const POPULAR_DOMAINS = ['google.com', 'facebook.com', 'amazon.com', 'apple.com', 'microsoft.com', 'paypal.com', 'chase.com', 'bankofamerica.com', 'hdfcbank.com'];
+const POPULAR_DOMAINS = ['google.com', 'facebook.com', 'amazon.com', 'apple.com', 'microsoft.com', 'paypal.com', 'chase.com', 'bankofamerica.com', 'hdfcbank.com', 'twitter.com', 'linkedin.com', 'instagram.com', 'netflix.com', 'github.com'];
+
+// Whitelist of domains that should NEVER be flagged as scams
+const GLOBAL_WHITELIST = [
+    'google.com', 'google.co.in', 'youtube.com', 'facebook.com', 'amazon.in', 'amazon.com', 
+    'microsoft.com', 'apple.com', 'github.com', 'stackoverflow.com', 'linkedin.com', 
+    'twitter.com', 'wikipedia.org', 'netflix.com', 'brave.com'
+];
 
 function calculateLevenshtein(a, b) {
     const matrix = [];
@@ -20,29 +27,30 @@ async function analyzeRisk(data) {
     let score = 0;
     let reasons = [];
 
+    // 0. Whitelist Check (Immediate bypass for known safe domains)
+    const isWhitelisted = GLOBAL_WHITELIST.some(d => data.hostname.endsWith(d));
+    if (isWhitelisted) {
+        return { score: 0, verdict: "Safe", reasons: ["Domain verified via Exty Global Whitelist."], timestamp: Date.now() };
+    }
+
     // 1. SSL Certificate Verification
     if (data.protocol !== 'https:') {
         score += 40;
-        reasons.push("CRITICAL: Insecure connection (No SSL). Scam sites rarely use valid HTTPS.");
-    } else {
-        // Mock SSL Detail Check (Scams often use free/short-lived certs)
-        // In a real app, you'd use an API to check cert age/issuer
-        score += 5; 
-        reasons.push("SSL active, but origin trust is still being evaluated.");
+        reasons.push("CRITICAL: Insecure connection (No SSL). Scammers often avoid encrypted connections.");
     }
 
-    // 2. Domain & URL Analysis
+    // 2. URL Patterns
     const parts = data.hostname.split('.');
     const tld = '.' + parts[parts.length - 1];
     
     if (SUSPICIOUS_TLDS.includes(tld)) {
-        score += 25;
-        reasons.push(`Suspicious TLD (${tld}) detected. High correlation with scam domains.`);
+        score += 20;
+        reasons.push(`Suspicious TLD (${tld}) - Commonly used in malicious campaigns.`);
     }
 
-    if (parts.length > 3) {
-        score += 15;
-        reasons.push("Excessive subdomains detected; often used to hide the real domain.");
+    if (parts.length > 4) {
+        score += 10;
+        reasons.push("Multiple subdomains detected; often used to obscure the primary domain.");
     }
 
     // 3. Lookalike & Brand Impersonation
@@ -50,56 +58,53 @@ async function analyzeRisk(data) {
     for (const popular of POPULAR_DOMAINS) {
         if (mainDomain !== popular) {
             const distance = calculateLevenshtein(mainDomain, popular);
-            if (distance > 0 && distance <= 2) {
+            // Only flag very close matches (1 char diff) to reduce false positives
+            if (distance === 1) {
                 score += 50;
-                reasons.push(`LOOKALAKE DOMAIN: This domain is visually similar to ${popular}.`);
+                reasons.push(`LOOKALAKE ALERT: Domain visually mimics ${popular}.`);
             }
         }
     }
 
     if (data.brandImpersonation) {
-        score += 45;
-        reasons.push(`BRAND IMPERSONATION: Page mimics ${data.detectedBrand} but domain is unauthorized.`);
+        // Only add high score if not on a reputable domain
+        score += 40;
+        reasons.push(`BRAND MISMATCH: Page claims to be ${data.detectedBrand} but is on an unverified domain.`);
     }
 
-    // 4. Phishing Keyword Detection
+    // 4. Phishing Keyword Detection (Weighted)
     if (data.suspiciousKeywordsFound && data.suspiciousKeywordsFound.length > 0) {
-        score += data.suspiciousKeywordsFound.length * 10;
-        reasons.push(`PHISHING LANGUAGE: High-pressure keywords detected: ${data.suspiciousKeywordsFound.slice(0, 3).join(', ')}.`);
+        // Keywords alone shouldn't trigger a scam verdict unless there are many or other signals
+        const keywordScore = Math.min(data.suspiciousKeywordsFound.length * 8, 30);
+        score += keywordScore;
+        if (keywordScore > 15) {
+            reasons.push(`SENSITIVE LANGUAGE: High-pressure keywords found: ${data.suspiciousKeywordsFound.slice(0, 2).join(', ')}.`);
+        }
     }
 
     // 5. Form Field Sensitivity (Enhanced)
     if (data.sensitiveInputs && data.sensitiveInputs.length > 0) {
-        if (score > 30 || data.protocol !== 'https:') {
-            score += 35;
-            reasons.push("SENSITIVE DATA REQUEST: Page is asking for private info (OTP/PIN/Card) on a low-trust domain.");
+        // Only high risk if the domain is already suspicious or lacks SSL
+        if (score > 25 || data.protocol !== 'https:') {
+            score += 30;
+            reasons.push("DATA HARVESTING: Sensitive fields (OTP/PIN/SSN) found on a low-trust page.");
         }
     }
 
     // 6. External Link & Redirect Analysis
-    if (data.redirectLinks && data.redirectLinks.length > 5) {
-        score += 15;
-        reasons.push("REDIRECT CHAINS: Unusual amount of redirect-based links detected.");
+    if (data.redirectLinks && data.redirectLinks.length > 10) {
+        score += 10;
+        reasons.push("UNUSUAL REDIRECTS: High volume of navigation redirects detected.");
     }
 
-    // 7. Mock WHOIS & Blacklist Query
-    // Scams are usually < 6 months old
-    const isNewDomain = Math.random() > 0.5; // Simulated WHOIS check
-    if (isNewDomain) {
-        score += 20;
-        reasons.push("WHOIS DATA: Domain was registered very recently (< 6 months).");
-    }
-
-    const isBlacklisted = Math.random() > 0.8; // Simulated PhishTank/SafeBrowsing check
-    if (isBlacklisted) {
-        score += 60;
-        reasons.push("BLACKLIST: Domain has been reported as a phishing site in external security databases.");
-    }
+    // 7. REMOVED RANDOM MOCKS (To eliminate false positives)
+    // In a real production environment, these would be replaced by actual API calls
+    // For this build, we rely on deterministic heuristics.
 
     // Verdict calculation
     let verdict = "Safe";
-    if (score >= 70) verdict = "Scam Detected";
-    else if (score >= 35) verdict = "Suspicious";
+    if (score >= 75) verdict = "Scam Detected";
+    else if (score >= 40) verdict = "Suspicious";
 
     return {
         score: Math.min(score, 100),
@@ -116,7 +121,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const tabId = sender.tab.id;
             chrome.storage.local.set({ [`results_${tabId}`]: results });
 
-            // Update badge
             let color = "#4CAF50";
             if (results.verdict === "Suspicious") color = "#FF9800";
             if (results.verdict === "Scam Detected") color = "#F44336";
@@ -124,7 +128,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             chrome.action.setBadgeText({ text: results.verdict[0], tabId: tabId });
             chrome.action.setBadgeBackgroundColor({ color: color, tabId: tabId });
 
-            // Trigger badge injection on the page
             chrome.tabs.sendMessage(tabId, { 
                 type: "SHOW_BADGE", 
                 verdict: results.verdict, 
@@ -138,7 +141,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-// Cleanup storage when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
     chrome.storage.local.remove(`results_${tabId}`);
 });
