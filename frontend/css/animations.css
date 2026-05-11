@@ -1,0 +1,24 @@
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes glow{0%,100%{box-shadow:0 0 5px var(--accent-cyan),0 0 20px rgba(0,240,255,.15)}50%{box-shadow:0 0 20px var(--accent-cyan),0 0 40px rgba(0,240,255,.3)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes ring1{0%{transform:rotate(0) scale(1);opacity:.3}50%{transform:rotate(180deg) scale(1.1);opacity:.6}100%{transform:rotate(360deg) scale(1);opacity:.3}}
+@keyframes ring2{0%{transform:rotate(0) scale(1);opacity:.2}50%{transform:rotate(-180deg) scale(1.15);opacity:.5}100%{transform:rotate(-360deg) scale(1);opacity:.2}}
+@keyframes ring3{0%{transform:rotate(0);opacity:.15}100%{transform:rotate(360deg);opacity:.15}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+@keyframes bounceIn{0%{transform:scale(.3);opacity:0}50%{transform:scale(1.05)}70%{transform:scale(.95)}100%{transform:scale(1);opacity:1}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes progressFill{from{width:0}to{width:var(--fill)}}
+.animate-fade{animation:fadeIn .6s ease both}
+.animate-fade-up{animation:fadeInUp .6s ease both}
+.animate-slide{animation:slideIn .5s ease both}
+.animate-bounce{animation:bounceIn .6s ease both}
+.animate-shake{animation:shake .5s ease}
+.animate-pulse{animation:pulse 2s ease infinite}
+.animate-float{animation:float 3s ease-in-out infinite}
+.animate-glow{animation:glow 2s ease-in-out infinite}
