@@ -4,11 +4,13 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUI();
 
     document.getElementById('rescan-btn').addEventListener('click', () => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, { type: "START_SCAN_MANUAL" });
-                setTimeout(updateUI, 100);
-            }
+        chrome.storage.local.set({ protectionEnabled: true }, () => {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, { type: "START_SCAN_MANUAL" });
+                    setTimeout(updateUI, 100);
+                }
+            });
         });
     });
 });
